@@ -1,0 +1,103 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api/comments
+
+spring:
+  application:
+    name: comments-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/comments_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 120000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+    schemas: public
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      authenticationService:
+        registerHealthIndicator: true
+        failureRateThreshold: 50
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+      commentPersistence:
+        registerHealthIndicator: true
+        failureRateThreshold: 30
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+  retry:
+    instances:
+      authenticationService:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.util.concurrent.TimeoutException
+          - java.net.SocketTimeoutException
+  timelimiter:
+    instances:
+      authenticationService:
+        timeoutDuration: 3s
+        cancelRunningFuture: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+    retries:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.pragma.comments: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.web: DEBUG
+    org.springframework.orm.jpa: DEBUG
+    io.github.resilience4j: DEBUG
